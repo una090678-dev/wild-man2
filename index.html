@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>野人荒島求生記 - 3D 掌上手遊互動版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: 引入思源黑體繁體 (Noto Sans TC) 以全面統一中英文字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Three.js (3D Engine) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        body {
+            /* 全面統一使用 Noto Sans TC 作為全遊戲唯一字體 */
+            font-family: 'Nunito', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+            background-color: #0d1a0d;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Landscape Mobile Container Style */
+        .game-wrapper {
+            width: 100vw;
+            height: 100vh;
+            max-width: 960px;
+            max-height: 540px;
+            aspect-ratio: 16 / 9;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+            border: 8px solid #2d1e12; /* Wooden bezel style */
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            background: #111;
+        }
+
+        @media (max-width: 980px) or (max-height: 560px) {
+            .game-wrapper {
+                max-width: 100%;
+                max-height: 100%;
+                border: none;
+                border-radius: 0;
+            }
+        }
+
+        /* CSS Animations */
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.6)); }
+            50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(245, 158, 11, 0.9)); }
+        }
+        .pulse-btn {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        /* Scrollbar styling for Wrong Answers Review Box */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(245, 158, 11, 0.5);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-0 md:p-4 bg-gradient-to-tr from-stone-950 via-emerald-950 to-stone-900">
+
+    <!-- Primary Console Wrapper (Landscape 16:9) -->
+    <div class="game-wrapper flex flex-col relative text-white">
+        
+        <!-- ================= 3D CANVAS LAYER ================= -->
+        <div id="threejs-container" class="absolute inset-0 z-0"></div>
+
+        <!-- Water ripples cover -->
+        <div class="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/40 via-transparent to-black/30 z-10"></div>
+
+        <!-- ================= UI LAYER: START SCREEN ================= -->
+        <div id="ui-start" class="absolute inset-0 z-30 flex flex-col justify-between p-6 bg-gradient-to-b from-black/80 via-emerald-950/60 to-black/90 font-black">
+            <div class="flex justify-between items-start">
+                <div class="bg-amber-600/90 text-slate-950 px-4 py-1.5 rounded-lg text-sm font-black border-b-4 border-amber-800">
+                    <i class="fa-solid fa-person-hiking mr-1"></i> SURVIVAL 3D
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-emerald-400 font-extrabold">健康知識求生挑戰</p>
+                    <p class="text-[10px] text-stone-400">Version 7.7 (規則詳盡升級版)</p>
+                </div>
+            </div>
+
+            <div class="text-center my-auto">
+                <h1 class="text-5xl md:text-6xl font-black tracking-wider text-amber-400 drop-shadow-[0_4px_6px_rgba(0,0,0,0.9)] animate-bounce font-black">
+                    野人荒島求生記
+                </h1>
+                <p class="text-base md:text-xl text-emerald-200 mt-3 max-w-lg mx-auto font-black drop-shadow">
+                    射出 3D 飛鏢打獵、蓋起夢想木屋、替野人搭配專業探險套裝！
+                </p>
+                
+                <div class="mt-5 max-w-xs mx-auto flex gap-2 items-center bg-black/70 p-2 rounded-xl border border-emerald-800/60">
+                    <span class="text-amber-300 font-extrabold text-base shrink-0">玩家名稱：</span>
+                    <input type="text" id="player-name-input" value="荒島野人" class="bg-transparent text-left font-extrabold text-amber-200 focus:outline-none w-full text-base placeholder-emerald-700" placeholder="輸入野人名字">
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center gap-2">
+                <button id="btn-enter-island" class="pulse-btn px-12 py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-black text-lg rounded-full shadow-[0_4px_0_#9a3412] active:translate-y-1 active:shadow-none transition-all">
+                    登陸 3D 荒島 <i class="fa-solid fa-compass-drafting ml-1"></i>
+                </button>
+                <p class="text-sm text-stone-400 font-bold">建議開啟音效以獲得最佳生存體驗</p>
+            </div>
+        </div>
+
+        <!-- ================= UI LAYER: MAIN HUD ================= -->
+        <div id="ui-hud" class="hidden absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 font-black">
+            <div class="flex justify-between items-start w-full pointer-events-auto">
+                <!-- Survival Stats -->
+                <div class="flex flex-col gap-1.5 bg-black/75 p-3 rounded-xl border border-stone-800 backdrop-blur-sm text-sm w-48">
+                    <div class="flex items-center gap-2 text-amber-400 font-black text-base">
+                        <i class="fa-solid fa-id-badge text-lg"></i> <span id="hud-player-name">勇士</span>
+                    </div>
+                    <div class="text-xs text-stone-300 font-extrabold mt-1">
+                        島嶼狀況：正常運行中
+                    </div>
+                </div>
+
+                <!-- Island Progress -->
+                <div class="flex flex-col gap-1.5 bg-black/75 p-3 rounded-xl border border-stone-800 backdrop-blur-sm text-right">
+                    <div class="text-xs text-stone-400 font-black uppercase">島嶼營造計畫</div>
+                    <div class="flex gap-2 mt-0.5">
+                        <span id="badge-hunt" class="bg-stone-900 border border-red-800 text-red-400 opacity-40 px-2 py-1 rounded text-xs font-black"><i class="fa-solid fa-meat mr-1"></i>運動打獵</span>
+                        <span id="badge-build" class="bg-stone-900 border border-amber-800 text-amber-400 opacity-40 px-2 py-1 rounded text-xs font-black"><i class="fa-solid fa-house mr-1"></i>睡眠建造</span>
+                        <span id="badge-dress" class="bg-stone-900 border border-fuchsia-800 text-fuchsia-400 opacity-40 px-2 py-1 rounded text-xs font-black"><i class="fa-solid fa-shirt mr-1"></i>心理著裝</span>
+                    </div>
+                    <div class="text-xs text-emerald-300 font-black mt-1">總求生進度：<span id="hud-total-progress" class="font-extrabold">0%</span></div>
+                </div>
+            </div>
+
+            <!-- Bottom HUD -->
+            <div class="flex justify-between items-end w-full">
+                <div class="flex items-center gap-2.5 bg-black/60 p-2.5 rounded-xl border border-stone-800/40 pointer-events-auto text-xs text-stone-300 font-extrabold">
+                    <div class="w-11 h-11 rounded-full border-2 border-dashed border-amber-500/60 flex items-center justify-center animate-spin">
+                        <i class="fa-solid fa-arrows-spin text-amber-400 text-base"></i>
+                    </div>
+                    <div>
+                        <p class="font-black text-amber-400">觸控或滑鼠拖曳</p>
+                        <p class="text-[10px] text-stone-400">360度旋轉觀察 3D 荒島</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pointer-events-auto">
+                    <!-- Hunt Button -->
+                    <button onclick="changeGameMode('hunt')" class="relative flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-b from-red-950 to-red-900 border-2 border-red-500 shadow-md active:scale-95 transition-all">
+                        <i class="fa-solid fa-crosshairs text-xl text-red-200"></i>
+                        <span class="text-[10px] font-black mt-1 text-red-100">森林打獵</span>
+                        <span id="hud-hunt-count" class="absolute -top-1.5 -right-1.5 bg-red-600 text-[10px] px-1.5 py-0.5 rounded-full font-black">0/5</span>
+                    </button>
+                    <!-- Build Button -->
+                    <button onclick="changeGameMode('build')" class="relative flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-b from-amber-950 to-amber-900 border-2 border-amber-500 shadow-md active:scale-95 transition-all">
+                        <i class="fa-solid fa-house-chimney text-xl text-amber-200"></i>
+                        <span class="text-[10px] font-black mt-1 text-amber-100">睡房搭建</span>
+                        <span id="hud-build-count" class="absolute -top-1.5 -right-1.5 bg-amber-600 text-[10px] px-1.5 py-0.5 rounded-full font-black">0/5</span>
+                    </button>
+                    <!-- Dress Button -->
+                    <button onclick="changeGameMode('dress')" class="relative flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-b from-fuchsia-950 to-fuchsia-900 border-2 border-fuchsia-500 shadow-md active:scale-95 transition-all">
+                        <i class="fa-solid fa-shirt text-xl text-fuchsia-200"></i>
+                        <span class="text-[10px] font-black mt-1 text-fuchsia-100">心理著裝</span>
+                        <span id="hud-dress-count" class="absolute -top-1.5 -right-1.5 bg-fuchsia-600 text-[10px] px-1.5 py-0.5 rounded-full font-black">0/5</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= UI LAYER: MINI GAME - HUNTING CONTROLS ================= -->
+        <div id="ui-game-hunt" class="hidden absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 font-black">
+            <div class="flex justify-between items-start pointer-events-auto">
+                <button onclick="quitToIsland()" class="bg-red-950 border border-red-700 text-sm px-3.5 py-2 rounded-lg font-black shadow-md"><i class="fa-solid fa-circle-left mr-1"></i>返回島嶼</button>
+                <div class="bg-red-950/90 border-2 border-red-500 px-4 py-1.5 rounded-full text-center">
+                    <p class="text-[11px] text-red-300 font-extrabold">森林獵場（體能與運動）</p>
+                    <p class="text-sm font-black">獵物累積：<span id="hunt-score">0</span> / 5</p>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/75 px-3 py-2 rounded-lg border border-red-900 text-sm font-black text-red-400">
+                    生命值：<span id="hunt-lives" class="flex gap-0.5 text-red-500 text-xs"></span>
+                </div>
+            </div>
+            
+            <div class="w-full flex justify-between items-end">
+                <div class="bg-black/75 p-2.5 rounded-lg text-sm text-stone-200 max-w-sm font-extrabold font-black">
+                    <i class="fa-solid fa-circle-exclamation text-red-400 mr-1 text-sm"></i>
+                    【打獵指南】：點擊螢幕上奔跑的動物，將會發射飛鏢！射中後正確作答，前進下一題！
+                </div>
+                <div class="bg-red-500 text-slate-950 px-4 py-2 rounded-lg text-sm font-black pointer-events-auto">
+                    <i class="fa-solid fa-bullseye animate-ping mr-1"></i> 點擊動物發射飛鏢 🎯
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= UI LAYER: MINI GAME - HOUSE BUILDING CONTROLS ================= -->
+        <div id="ui-game-build" class="hidden absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 font-black">
+            <div class="flex justify-between items-start pointer-events-auto">
+                <button onclick="quitToIsland()" class="bg-amber-950 border border-amber-700 text-sm px-3.5 py-2 rounded-lg font-black shadow-md"><i class="fa-solid fa-circle-left mr-1"></i>返回島嶼</button>
+                <div class="bg-amber-950/90 border-2 border-amber-500 px-4 py-1.5 rounded-full text-center">
+                    <p class="text-[11px] text-amber-300 font-extrabold">睡眠小木屋計畫</p>
+                    <p class="text-sm font-black">小屋家具解鎖：<span id="build-score">0</span> / 5</p>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/75 px-3 py-2 rounded-lg border border-amber-900 text-sm font-black text-amber-400">
+                    生命值：<span id="build-lives" class="flex gap-0.5 text-red-500 text-xs"></span>
+                </div>
+            </div>
+
+            <div class="w-full flex justify-between items-end">
+                <div class="bg-black/75 p-2.5 rounded-lg text-sm text-stone-200 max-w-sm font-extrabold font-black">
+                    <i class="fa-solid fa-circle-exclamation text-amber-400 mr-1 text-sm"></i>
+                    【建造指南】：點擊右側抽取睡眠問題。每答對一題，一件實用溫馨的家具就會高空落地！
+                </div>
+                <button id="btn-trigger-build-quiz" onclick="triggerQuiz('build')" class="pointer-events-auto px-6 py-3.5 bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 font-black text-sm rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1.5 animate-pulse">
+                    <i class="fa-solid fa-hammer"></i> 抽取睡眠問題
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= UI LAYER: MINI GAME - SAVAGE DRESS CONTROLS ================= -->
+        <div id="ui-game-dress" class="hidden absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 font-black">
+            <div id="dress-ui-header" class="flex justify-between items-start pointer-events-auto w-full">
+                <button onclick="quitToIsland()" class="bg-fuchsia-950 border border-fuchsia-700 text-sm px-3.5 py-2 rounded-lg font-black shadow-md"><i class="fa-solid fa-circle-left mr-1"></i>返回島嶼</button>
+                <div class="bg-fuchsia-950/90 border-2 border-fuchsia-500 px-4 py-1.5 rounded-full text-center">
+                    <p class="text-sm md:text-base text-fuchsia-300 font-black">野人外觀大改造（心理健康）</p>
+                    <p class="text-sm md:text-base font-black">時尚穿搭累積：<span id="dress-score">0</span> / 5</p>
+                </div>
+                <div class="flex items-center gap-1.5 bg-black/75 px-3 py-2 rounded-lg border border-fuchsia-900 text-sm font-black text-fuchsia-400">
+                    生命值：<span id="dress-lives" class="flex gap-0.5 text-red-500 text-xs"></span>
+                </div>
+            </div>
+
+            <div id="dress-ui-footer" class="w-full flex justify-between items-end">
+                <div class="bg-black/75 p-3 rounded-lg text-sm md:text-base text-stone-200 max-w-md font-extrabold font-black">
+                    <i class="fa-solid fa-circle-exclamation text-fuchsia-400 mr-1 text-base"></i>
+                    【換裝指南】：答對心理與調適問題，自選專業級求生探險帽、工裝褲、戰術目鏡！
+                </div>
+                <button id="btn-trigger-dress-quiz" onclick="triggerQuiz('dress')" class="pointer-events-auto px-6 py-4 bg-gradient-to-b from-fuchsia-400 to-fuchsia-600 text-slate-950 font-black text-sm md:text-base rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-1.5 animate-pulse">
+                    <i class="fa-solid fa-gift text-lg"></i> 抽取心理問題
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= GLOBAL COGNITIVE QUIZ MODAL ================= -->
+        <div id="quiz-modal" class="hidden absolute inset-0 z-40 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-stone-900 border-4 border-amber-800 rounded-2xl p-5 flex flex-col shadow-2xl relative max-h-[92%] overflow-y-auto font-black">
+                <div class="self-center bg-amber-800 text-amber-100 text-xs font-black uppercase tracking-wider px-4 py-1.5 rounded-full mb-3 border border-amber-600" id="quiz-topic-badge">
+                    運動與健康
+                </div>
+                
+                <div class="flex justify-between items-center mb-2.5">
+                    <h3 class="text-sm font-extrabold text-stone-400">求生智慧考驗</h3>
+                    <span id="quiz-progress-lbl" class="text-xs font-black text-amber-400">進度: 1/5</span>
+                </div>
+
+                <div class="bg-stone-950 p-4 rounded-xl border border-stone-800 mb-4 text-center shadow-inner text-base md:text-lg">
+                    <p id="quiz-question-text" class="text-xl md:text-2xl font-black leading-relaxed text-amber-200">
+                        正在載入題目...
+                    </p>
+                </div>
+
+                <div class="flex flex-col gap-2.5" id="quiz-options-container"></div>
+
+                <div id="quiz-result-feedback" class="hidden mt-3.5 p-3 rounded-lg text-center text-sm font-black">
+                    回答正確！
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= DRESS UP CHOOSE DIALOG ================= -->
+        <div id="dress-selector-modal" class="hidden absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="w-full max-w-md bg-stone-900 border-4 border-fuchsia-800 rounded-2xl p-5 flex flex-col shadow-2xl font-black">
+                <h3 class="text-lg md:text-xl font-black text-fuchsia-300 text-center uppercase tracking-wider mb-1.5"><i class="fa-solid fa-gift text-lg"></i> 時尚解鎖獎勵</h3>
+                <p id="dress-category-hint" class="text-sm md:text-base text-stone-200 font-extrabold text-center mb-4">請挑選一件裝備穿在您的 3D 野人身上！</p>
+                <div class="grid grid-cols-2 gap-4 my-2" id="dress-choices-container"></div>
+            </div>
+        </div>
+
+        <!-- ================= STATE OVERLAYS ================= -->
+        <div id="result-overlay" class="hidden absolute inset-0 z-40 bg-black/90 backdrop-blur-md flex flex-col justify-center items-center p-6 text-center font-black">
+            <div class="w-20 h-20 rounded-full flex items-center justify-center mb-3 text-4xl shadow-lg" id="result-icon-bg">
+                <i class="fa-solid" id="result-icon"></i>
+            </div>
+            
+            <h2 class="text-2xl font-black mb-2 text-amber-400" id="result-title">挑戰成功！</h2>
+            <p class="text-sm md:text-base text-stone-200 px-4 mb-5 leading-relaxed max-w-sm font-black" id="result-description">
+                你解鎖了豐富的資源！
+            </p>
+
+            <button id="btn-result-action" class="bg-gradient-to-r from-emerald-500 to-green-600 text-slate-950 font-black px-10 py-3.5 rounded-full shadow-lg active:scale-95 transition-all w-full max-w-xs text-sm pointer-events-auto">
+                帶回島嶼！
+            </button>
+        </div>
+
+        <!-- ================= ULTIMATE SURVIVAL VICTORY ENDING OVERLAY ================= -->
+        <div id="victory-ending-overlay" class="hidden absolute inset-0 z-50 bg-gradient-to-b from-stone-950 via-emerald-950 to-stone-900 flex flex-col p-6 overflow-y-auto font-black font-black font-black">
+            <div class="m-auto w-full max-w-2xl flex flex-col items-center">
+                <div class="w-20 h-20 rounded-full bg-amber-500 text-stone-950 flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(245,158,11,0.6)] mb-3 animate-bounce">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                
+                <h1 class="text-3xl md:text-4xl font-extrabold text-amber-400 text-center tracking-wider drop-shadow-md mb-2 font-black">
+                    🎉 恭喜！荒島求生大獲全勝！ 🎉
+                </h1>
+                
+                <p id="victory-ending-text" class="text-sm md:text-base text-center text-emerald-100 max-w-xl leading-relaxed mb-5 font-black">
+                    你憑藉著過人的運動、睡眠作息與身心調適智慧，在這座島上建立了繁華的生存家園，完美實現荒野征服！你是這座美麗 3D 荒島永遠的傳奇！
+                </p>
+
+                <!-- Wrong Answer Review Section -->
+                <div class="w-full bg-black/60 border-2 border-emerald-800 rounded-2xl p-4 flex flex-col shadow-inner max-h-56 overflow-y-auto custom-scroll mb-5 pointer-events-auto">
+                    <h3 class="text-sm md:text-base font-black text-amber-300 mb-2.5 flex items-center gap-1.5 border-b border-emerald-800/40 pb-1.5">
+                        <i class="fa-solid fa-book-open"></i> 求生智慧錯題複習本 (大腦智慧沉澱)
+                    </h3>
+                    
+                    <div id="wrong-answers-list-container" class="flex flex-col gap-3 text-left"></div>
+                </div>
+
+                <!-- Action Button to restart game -->
+                <button onclick="restartFullGame()" class="pulse-btn pointer-events-auto px-12 py-4.5 bg-gradient-to-r from-amber-400 to-orange-500 text-stone-950 font-black text-sm md:text-base rounded-full shadow-lg active:scale-95 active:translate-y-0.5 transition-all">
+                    重啟荒島傳奇之旅 <i class="fa-solid fa-redo ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= ULTIMATE SURVIVAL FAILURE ENDING OVERLAY ================= -->
+        <div id="failure-ending-overlay" class="hidden absolute inset-0 z-50 bg-gradient-to-b from-stone-950 via-stone-900 to-red-950/60 flex flex-col p-6 overflow-y-auto font-black font-black">
+            <div class="m-auto w-full max-w-2xl flex flex-col items-center">
+                <div class="w-20 h-20 rounded-full bg-red-600 text-stone-100 flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(220,38,38,0.6)] mb-3 animate-pulse">
+                    <i class="fa-solid fa-skull-crossbones"></i>
+                </div>
+                
+                <h1 class="text-3xl md:text-4xl font-extrabold text-red-500 text-center tracking-wider drop-shadow-md mb-2 font-black">
+                    🚨 宣布求生失敗！ 🚨
+                </h1>
+                
+                <p class="text-base md:text-lg text-center text-stone-200 max-w-xl leading-relaxed mb-5 font-black">
+                    很遺憾！您的重玩機會已全數用盡。荒島野外的環境嚴酷，別灰心，健康大腦需要時間累積，重新複習一下先前的錯題，你一定能戰勝下一次的考驗！
+                </p>
+
+                <!-- Wrong Answer Review Section -->
+                <div class="w-full bg-black/60 border-2 border-red-900/60 rounded-2xl p-4 flex flex-col shadow-inner max-h-56 overflow-y-auto custom-scroll mb-5 pointer-events-auto">
+                    <h3 class="text-sm md:text-base font-black text-red-400 mb-2.5 flex items-center gap-1.5 border-b border-red-900/40 pb-1.5">
+                        <i class="fa-solid fa-book-open"></i> 錯題複習本 (答錯題目回顧)
+                    </h3>
+                    <div id="wrong-answers-failure-container" class="flex flex-col gap-3 text-left"></div>
+                </div>
+
+                <!-- Action Button to restart game -->
+                <button onclick="restartFullGame()" class="pulse-btn pointer-events-auto px-12 py-4.5 bg-gradient-to-r from-red-600 to-orange-600 text-stone-100 font-black text-sm md:text-base rounded-full shadow-lg active:scale-95 active:translate-y-0.5 transition-all">
+                    重整裝備，重新啟航 <i class="fa-solid fa-arrows-rotate ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= GAME RULES MODAL (每關開始時顯示規則) ================= -->
+        <div id="rules-modal" class="hidden absolute inset-0 z-40 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 font-black">
+            <div class="w-full max-w-md bg-stone-900 border-4 border-amber-600 rounded-2xl p-6 flex flex-col shadow-2xl text-center">
+                <h2 id="rules-title" class="text-2xl md:text-3xl font-black text-amber-400 mb-3.5">關卡規則</h2>
+                <div class="bg-stone-950 p-4 rounded-xl border border-stone-800 mb-5 text-left">
+                    <p id="rules-text" class="text-sm md:text-base font-bold leading-relaxed text-stone-300">
+                        規則描述載入中...
+                    </p>
+                </div>
+                <button id="btn-start-mini-game" class="pulse-btn px-10 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-stone-950 font-black text-base md:text-lg rounded-full shadow-[0_4px_0_#9a3412] active:translate-y-1 active:shadow-none transition-all pointer-events-auto">
+                    確認並開始挑戰！ <i class="fa-solid fa-play ml-1"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ================= HEALTH KNOWLEDGE DATABASE =================
+        const QUESTIONS = {
+            hunt: [
+                { 
+                    q: "運動前應該做什麼來避免肌肉拉傷與關節受傷？", 
+                    a: ["靜態拉伸", "動態熱身", "直接劇烈運動", "睡一覺"], 
+                    c: 1,
+                    hint: "提示：在關節尚未靈活時勉強拉長肌肉容易受傷，我們應該透過「活動關節、微幅流汗」的方式先喚醒肌肉。"
+                },
+                { 
+                    q: "哪種運動能最有效增強心肺功能與長途耐力？", 
+                    a: ["有氧運動", "重力訓練", "下象棋", "短跑衝刺"], 
+                    c: 0,
+                    hint: "提示：這種運動需要長時間、有規律、大肌群參與，並能持續供應大腦與肌肉氧氣。"
+                },
+                { 
+                    q: "每週建議至少進行多少分鐘的「中等強度」身體活動？", 
+                    a: ["30分鐘", "60分鐘", "150分鐘", "500分鐘"], 
+                    c: 2,
+                    hint: "提示：世界衛生組織指出，平均分配到一週內，每天約維持 20-30 分鐘，累積起來的總時間正是這個數值。"
+                },
+                { 
+                    q: "運動時如果流汗過多，最應該適度補充什麼？", 
+                    a: ["冰鎮可樂", "水分與微量電解質", "熱黑咖啡", "高蛋白奶昔"], 
+                    c: 1,
+                    hint: "提示：流汗除了帶走大量的水分，也會流失微量元素（如鈉、鉀），只喝純水可能會降低血液滲透壓。"
+                },
+                { 
+                    q: "重力訓練主要有助於提升什麼？", 
+                    a: ["關節柔軟度", "肌肉力量與維持骨質密度", "肺活量", "平衡感與視覺"], 
+                    c: 1,
+                    hint: "提示：對抗阻力的肌力運動會刺激骨骼重塑與肌肉微破壞後的修復，讓肌肉更結實、預防骨質流失。"
+                }
+            ],
+            build: [
+                { 
+                    q: "一般成年人每晚最理想的健康睡眠修復時間是多少小時？", 
+                    a: ["4-5小時", "7-9小時", "11-12小時", "2-3小時即可"], 
+                    c: 1,
+                    hint: "提示：研究顯示睡眠太少（低於6小時）或太多（高於10小時）都會增加慢性病風險，黃金修復期正好是這個標準區間。"
+                },
+                { 
+                    q: "睡前若頻繁觀看手機，螢幕中的「藍光」會抑制哪種助眠激素分泌？", 
+                    a: ["褪黑激素", "腎上腺素", "皮質醇", "胰島素"], 
+                    c: 0,
+                    hint: "提示：大腦的松果體會根據光線明暗決定是否分泌該激素。藍光會讓大腦誤以為現在還是白天。"
+                },
+                { 
+                    q: "下列哪一種環境配置最能提高並保持最優質的睡眠深度？", a: ["明亮的大燈", "微涼、安靜且保持黑暗", "播著音樂的電視", "悶熱潮濕的木屋"], 
+                    c: 1,
+                    hint: "提示：人體深層睡眠時體溫會稍微下降，且感光視網膜對微弱光線敏感，冷暗靜謐的空間能避免睡眠中斷。"
+                },
+                { 
+                    q: "睡前大約幾小時內應盡量避免攝取咖啡、濃茶等含咖啡因刺激性飲料？", 
+                    a: ["10分鐘", "30分鐘", "4-6小時", "完全不需避免"], 
+                    c: 2,
+                    hint: "提示：咖啡因的半衰期很長，即使你覺得喝完很快睡著，大腦皮質依然會被刺激，導致無法進入深層睡眠。"
+                },
+                { 
+                    q: "深層睡眠對人體求生系統最主要的好處是？", 
+                    a: ["做精彩的惡夢", "大腦與身體組織自我修復、提升免疫力", "快速燃燒脂肪", "增強脂肪堆積"], 
+                    c: 1,
+                    hint: "提示：這個階段生長激素大量分泌，免疫細胞被重新激活，進行白天受損組織的修補工作。"
+                }
+            ],
+            dress: [
+                { 
+                    q: "當在島上感到極大精神壓力時，以下哪種是最「健康」的紓壓管道？", 
+                    a: ["憋在心裡", "深呼吸、尋求野人夥伴傾訴 or 寫日記", "暴飲暴食大魚大肉", "亂發脾氣發洩"], 
+                    c: 1,
+                    hint: "提示：透過正向的情緒轉移或與同伴建立情感連結，能最有效降低大腦杏仁核的焦慮訊號。"
+                },
+                { 
+                    q: "下列哪一項是建立良好荒島團隊關係、保持心理健康的關鍵元素？", 
+                    a: ["時常和同伴競爭", "同理心與善意的良性溝通", "把秘密完全憋心中", "迎合討好所有人"], 
+                    c: 1,
+                    hint: "提示：站在對方的角度思考（換位思考）並坦誠表達彼此的需求，是人際連結中最溫暖的潤滑劑。"
+                },
+                { 
+                    q: "目前廣為推廣的「正念」練習主要指導我們？", 
+                    a: ["專注於過去的懊悔", "不帶評判地專注於此時此刻的感受", "整天胡思亂想", "強行抑制所有難過思緒"], 
+                    c: 1,
+                    hint: "提示：不要去想昨天做錯了什麼，也不去焦慮明天會發生什麼，溫柔地把注意力拉回當下的呼吸。"
+                },
+                { 
+                    q: "遭遇失敗 or 求生挫折時，哪種自我對話最具建設性？", 
+                    a: ["我真是一無是處", "這是一次寶貴的學習與成長機會", "都是同伴害的", "假裝什麼都沒發生"], 
+                    c: 1,
+                    hint: "提示：失敗不是終點，而是幫助我們迭代修正的寶貴回饋。用成長型思維來看待挫折。"
+                },
+                { 
+                    q: "長期面臨高壓卻毫無宣洩 or 調解管道，最容易引發什麼身心狀況？", 
+                    a: ["體能暴增", "慢性焦慮、憂鬱與身心免疫失調", "記憶力大增", "人際魅力爆表"], 
+                    c: 1,
+                    hint: "提示：長期高壓會使體內的壓力荷爾盟（皮質醇）維持在危險高點，進而摧毀身體的自主免疫屏障。"
+                }
+            ],
+            // 野外急救與安全復活問題庫
+            revive: [
+                { q: "當同伴在島上不慎中暑昏迷時，以下哪一項是錯誤的緊急處理方式？", a: ["移至陰涼通風處", "解開緊繃衣物散熱", "強行灌入大量冰水", "用濕毛巾擦拭身體降溫"], c: 2, hint: "提示：昏迷的病患吞嚥反射已消失，強灌液體極易造成吸入性肺炎或窒息。" },
+                { q: "在野外被昆蟲或不明蚊蟲叮咬感到紅腫發癢時，首要安全處理是？", a: ["用乾淨清水或肥皂水清洗", "用力抓破擠出毒血", "塗抹泥沙止癢", "用火烤傷口消毒"], c: 0, hint: "提示：蚊蟲酸性唾液是主因。弱鹼性肥皂水可清洗並中和酸性、阻絕感染。" },
+                { q: "在島上砍柴不慎割傷手部出血不止，最快有效的急救止血法是？", a: ["用力拍打傷口", "直接按壓乾淨敷料於傷口上(加壓止血)", "抹乾土上去防漏", "任其流血幫助排毒"], c: 1, hint: "提示：血液在壓力下凝結。直接阻斷出血孔的物理按壓最有效。" }
+            ]
+        };
+
+        const FULL_DRESS_ITEMS = {
+            0: { 
+                category: "帽子 (頭部)", 
+                options: [ 
+                    { name: "探險遮陽帽 🤠", color: 0x8b5a2b, shape: "cone" }, 
+                    { name: "經典防風帽 🧢", color: 0x1e3a8a, shape: "crown" },
+                    { name: "迷彩生存軍帽 💂", color: 0x3d4e32, shape: "cone" },
+                    { name: "保暖針織毛帽 ❄️", color: 0x4a4a4a, shape: "crown" }
+                ] 
+            },
+            1: { 
+                category: "上裝 (胸背)", 
+                options: [ 
+                    { name: "野外生存防風衣 🧥", color: 0x2e4a1e, shape: "cape" }, 
+                    { name: "舒適純棉衫 👕", color: 0xeeeeee, shape: "vest" },
+                    { name: "多功能戰術背心 🦺", color: 0xd27d2c, shape: "vest" },
+                    { name: "抗UV抗撕裂風衣 🧥", color: 0x008080, shape: "cape" }
+                ] 
+            },
+            2: { 
+                category: "褲子 (下著)", 
+                options: [ 
+                    { name: "多口袋戰術工裝褲 👖", color: 0x3e2723, shape: "grass" }, 
+                    { name: "機能牛仔褲 👖", color: 0x1d4ed8, shape: "jeans" },
+                    { name: "耐磨登山長褲 👖", color: 0x5c4033, shape: "grass" },
+                    { name: "防潑特戰束口褲 👖", color: 0x111111, shape: "jeans" }
+                ] 
+            },
+            3: { 
+                category: "鞋子 (腳部)", 
+                options: [ 
+                    { name: "專業登山防滑靴 🥾", color: 0x4e3629, shape: "leather" }, 
+                    { name: "全地形運動鞋 👟", color: 0xffffff, shape: "iron" },
+                    { name: "特種防刺戰靴 🥾", color: 0x222222, shape: "leather" },
+                    { name: "越野避震跑鞋 👟", color: 0xff5500, shape: "iron" }
+                ] 
+            },
+            4: { 
+                category: "飾品 (面部)", 
+                options: [ 
+                    { name: "微光戰術目鏡 🥽", color: 0x10b981, shape: "glasses" }, 
+                    { name: "復古定位羅盤 🧭", color: 0xb5a642, shape: "feather" },
+                    { name: "高對比偏光鏡 🕶️", color: 0x000000, shape: "glasses" },
+                    { name: "先祖護身符 📿", color: 0xd2691e, shape: "feather" }
+                ] 
+            }
+        };
+
+        // ================= GAME SYNTHESIS SOUND EFFECTS =================
+        let audioCtx = null;
+        function playSfx(type) {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'click') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.12);
+
+                    const noiseOsc = audioCtx.createOscillator();
+                    const noiseGain = audioCtx.createGain();
+                    noiseOsc.type = 'sawtooth';
+                    noiseOsc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    noiseOsc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.15);
+                    noiseOsc.connect(noiseGain);
+                    noiseGain.connect(audioCtx.destination);
+                    noiseGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                    noiseOsc.start();
+                    noiseOsc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'hit') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(350, audioCtx.currentTime + 0.14);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.14);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.14);
+                } else if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); 
+                    osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.16); 
+                    osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.24); 
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.45);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.45);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(65, audioCtx.currentTime + 0.35);
+                    gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.35);
+                } else if (type === 'build') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(90, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(45, audioCtx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.28, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.4);
+                }
+            } catch (e) {}
+        }
+
+        // ================= STATE STORE =================
+        const state = {
+            playerName: "荒島野人",
+            gameMode: "island", 
+            scores: { hunt: 0, build: 0, dress: 0 },
+            completed: { hunt: false, build: false, dress: false },
+            
+            // 所有關卡生命值
+            lives: { hunt: 3, build: 3, dress: 3 },
+            
+            // 各關卡限一次重玩機會
+            retriesUsed: { hunt: 0, build: 0, dress: 0 },
+            
+            isDragging: false,
+            previousMouseX: 0,
+            previousMouseY: 0,
+            
+            activeQuizType: null,
+            currentQIdx: 0,
+            reviveTriggeredBy: null, 
+            
+            huntTargets: [],
+            lastHuntTargetSpawn: 0,
+            spears: [], 
+
+            furnitureAnimationStates: {},
+
+            wardrobe: { 0: null, 1: null, 2: null, 3: null, 4: null },
+            
+            wrongAnswers: [],
+            isReviveChallengeActive: false,
+            
+            isDisplayShowcaseActive: false,
+            showcaseTimer: 0,
+
+            shuffledChoices: [],
+            currentCorrectChoiceIdx: 0,
+
+            usedIndices: { hunt: [], build: [], dress: [] }
+        };
+
+        // ================= THREE.JS 3D SCENE CONFIGURATION =================
+        let scene, camera, renderer, container;
+        let islandGroup, seaMesh, campfire, tent, savageCharacter, sharkFin;
+        let islandHuntMeats, islandCabin;
+        let huntForestGroup, buildHouseGroup, dressCloseUpGroup;
+
+        const unlocked3DFurniture = { bed: null, lamp: null, window: null, table: null, plant: null };
+
+        function init3D() {
+            container = document.getElementById('threejs-container');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x13222e);
+            scene.fog = new THREE.FogExp2(0x13222e, 0.018);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 16, 28);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfffaed, 1.0);
+            sunLight.position.set(20, 40, 20);
+            sunLight.castShadow = true;
+            scene.add(sunLight);
+
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.45);
+            hemiLight.position.set(0, 50, 0);
+            scene.add(hemiLight);
+
+            islandGroup = new THREE.Group();
+            scene.add(islandGroup);
+
+            build3DIsland();
+            build3DForestGameScene();
+            build3DBuildingGameScene();
+            build3DSavageDressUpScene();
+
+            window.addEventListener('resize', onWindowResize);
+            container.addEventListener('mousedown', onMouseDown);
+            container.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+            container.addEventListener('touchstart', onTouchStart, { passive: true });
+            container.addEventListener('touchmove', onTouchMove, { passive: true });
+            window.addEventListener('touchend', onMouseUp);
+
+            animate3D();
+        }
+
+        // ================= BUILD 3D IMMERSIVE WILD ISLAND =================
+        function build3DIsland() {
+            // 1. Water
+            const seaGeo = new THREE.CylinderGeometry(50, 50, 1, 32);
+            const seaMat = new THREE.MeshStandardMaterial({ color: 0x085375, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.88 });
+            seaMesh = new THREE.Mesh(seaGeo, seaMat);
+            seaMesh.position.y = -1;
+            islandGroup.add(seaMesh);
+
+            // 2. Beach
+            const beachGeo = new THREE.CylinderGeometry(15, 16, 1.5, 32);
+            const beachMat = new THREE.MeshStandardMaterial({ color: 0xe0c08b, roughness: 0.95 });
+            const beach = new THREE.Mesh(beachGeo, beachMat);
+            beach.position.y = -0.2;
+            islandGroup.add(beach);
+
+            // 3. Grass
+            const grassGeo = new THREE.CylinderGeometry(11, 12.5, 1.2, 32);
+            const grassMat = new THREE.MeshStandardMaterial({ color: 0x479647, roughness: 0.85 });
+            const grass = new THREE.Mesh(grassGeo, grassMat);
+            grass.position.y = 0.5;
+            grass.receiveShadow = true;
+            islandGroup.add(grass);
+
+            // 4. Campfire
+            const fireGroup = new THREE.Group();
+            fireGroup.position.set(0, 1.1, 0);
+            fireGroup.scale.set(1.2, 1.2, 1.2);
+            const logMat = new THREE.MeshStandardMaterial({ color: 0x4a2c11 });
+            for (let i = 0; i < 4; i++) {
+                const logGeo = new THREE.CylinderGeometry(0.12, 0.12, 1, 6);
+                const log = new THREE.Mesh(logGeo, logMat);
+                log.rotation.z = Math.PI / 3;
+                log.rotation.y = (Math.PI / 2) * i;
+                fireGroup.add(log);
+            }
+            const fireGeo = new THREE.ConeGeometry(0.5, 1.1, 8);
+            const fireMat = new THREE.MeshBasicMaterial({ color: 0xff5500 });
+            campfire = new THREE.Mesh(fireGeo, fireMat);
+            campfire.position.y = 0.45;
+            fireGroup.add(campfire);
+            const fireLight = new THREE.PointLight(0xff6a00, 2.0, 10);
+            fireLight.position.set(0, 1, 0);
+            fireGroup.add(fireLight);
+            islandGroup.add(fireGroup);
+
+            // 5. Primitive Shelter Tent
+            tent = new THREE.Group();
+            tent.position.set(2.2, 1.1, -2.2); 
+            tent.rotation.y = -Math.PI / 4;
+            tent.scale.set(1.3, 1.3, 1.3);
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3d21 });
+            const clothMat = new THREE.MeshStandardMaterial({ color: 0xbd8655, side: THREE.DoubleSide });
+            const beamGeo = new THREE.CylinderGeometry(0.08, 0.08, 2.5, 6);
+            const b1 = new THREE.Mesh(beamGeo, woodMat); b1.rotation.z = 0.3; b1.position.set(-1, 1, 0); tent.add(b1);
+            const b2 = new THREE.Mesh(beamGeo, woodMat); b2.rotation.z = -0.3; b2.position.set(1, 1, 0); tent.add(b2);
+            const b3 = new THREE.Mesh(beamGeo, woodMat); b3.rotation.x = 0.3; b3.position.set(0, 1, -1); tent.add(b3);
+            const coverGeo = new THREE.ConeGeometry(1.4, 2, 4, 1, true);
+            const cover = new THREE.Mesh(coverGeo, clothMat);
+            cover.position.y = 0.9;
+            tent.add(cover);
+            islandGroup.add(tent);
+
+            // 6. Shark Fin
+            sharkFin = new THREE.Group();
+            const finGeo = new THREE.ConeGeometry(0.5, 1, 4);
+            finGeo.rotateX(Math.PI / 4);
+            const finMesh = new THREE.Mesh(finGeo, new THREE.MeshStandardMaterial({ color: 0x33444d, roughness: 0.6 }));
+            sharkFin.add(finMesh);
+            islandGroup.add(sharkFin);
+
+            // 7. Trees
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * Math.PI * 2) / 6;
+                const dist = 6.5 + Math.random() * 1.5;
+                const tree = createCartoonTree();
+                tree.position.set(Math.cos(angle) * dist, 1.1, Math.sin(angle) * dist);
+                tree.scale.set(1.0, 1.0, 1.0);
+                islandGroup.add(tree);
+            }
+
+            // 8. Blocky Savage Character (1.8x)
+            savageCharacter = createBlockySavage();
+            savageCharacter.scale.set(1.8, 1.8, 1.8);
+            savageCharacter.position.set(-1.8, 1.1, 1.2);
+            islandGroup.add(savageCharacter);
+
+            // 9. Unlocked Rewards on Island
+            islandHuntMeats = new THREE.Group();
+            islandHuntMeats.position.set(1.6, 1.1, 1.2);
+            islandHuntMeats.scale.set(1.4, 1.4, 1.4); 
+
+            const boneShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.0, 8), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.6 }));
+            boneShaft.rotation.z = Math.PI / 2.5; 
+            islandHuntMeats.add(boneShaft);
+
+            const boneJoint1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.6 }));
+            boneJoint1.position.set(-0.9, -0.4, 0);
+            islandHuntMeats.add(boneJoint1);
+
+            const boneJoint2 = boneJoint1.clone();
+            boneJoint2.position.set(0.9, 0.4, 0);
+            islandHuntMeats.add(boneJoint2);
+
+            const meatMain = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 1.1, 12), new THREE.MeshStandardMaterial({ color: 0x802a2a, roughness: 0.8 }));
+            meatMain.rotation.z = Math.PI / 2.5;
+            islandHuntMeats.add(meatMain);
+
+            const woodPile = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x5c4033 }));
+            woodPile.rotation.z = Math.PI / 2;
+            woodPile.position.set(0, -0.4, 0);
+            islandHuntMeats.add(woodPile);
+
+            islandHuntMeats.visible = false;
+            islandGroup.add(islandHuntMeats);
+
+            islandCabin = new THREE.Group();
+            islandCabin.position.set(2.2, 1.1, -2.2); 
+            islandCabin.rotation.y = -Math.PI / 4;
+            islandCabin.scale.set(1.3, 1.3, 1.3);
+            const cabinWall = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.8, 1.8), new THREE.MeshStandardMaterial({ color: 0x7c5a43 }));
+            cabinWall.position.y = 0.9;
+            islandCabin.add(cabinWall);
+            const cabinRoof = new THREE.Mesh(new THREE.ConeGeometry(1.8, 1.2, 4), new THREE.MeshStandardMaterial({ color: 0x8b2500 }));
+            cabinRoof.position.y = 2.2;
+            cabinRoof.rotation.y = Math.PI / 4;
+            islandCabin.add(cabinRoof);
+            islandCabin.visible = false;
+            islandGroup.add(islandCabin);
+        }
+
+        function createCartoonTree() {
+            const tree = new THREE.Group();
+            const trunkGeo = new THREE.CylinderGeometry(0.18, 0.3, 3, 6);
+            const trunk = new THREE.Mesh(trunkGeo, new THREE.MeshStandardMaterial({ color: 0x5a391e }));
+            trunk.position.y = 1.5;
+            tree.add(trunk);
+
+            const foliageMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.9 });
+            const l1 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1), foliageMat);
+            l1.position.y = 3;
+            tree.add(l1);
+            return tree;
+        }
+
+        function createBlockySavage() {
+            const savage = new THREE.Group();
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), new THREE.MeshStandardMaterial({ color: 0xe0a96d }));
+            head.position.y = 1.9;
+            savage.add(head);
+
+            const hair = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), new THREE.MeshStandardMaterial({ color: 0x3d2314 }));
+            hair.position.set(0, 2.1, 0);
+            savage.add(hair);
+
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.5), new THREE.MeshStandardMaterial({ color: 0xe0a96d }));
+            torso.position.y = 1;
+            savage.add(torso);
+
+            // 預設裙子
+            savage.defaultSkirt = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.4, 0.52), new THREE.MeshStandardMaterial({ color: 0x469e3a }));
+            savage.defaultSkirt.position.y = 0.55;
+            savage.add(savage.defaultSkirt);
+
+            const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.6, 0.3), new THREE.MeshStandardMaterial({ color: 0xe0a96d }));
+            leftLeg.position.set(-0.25, 0.3, 0);
+            savage.add(leftLeg);
+
+            const rightLeg = leftLeg.clone();
+            rightLeg.position.x = 0.25;
+            savage.add(rightLeg);
+
+            savage.hatSlot = new THREE.Group(); savage.hatSlot.position.set(0, 2.25, 0); savage.add(savage.hatSlot);
+            savage.vestSlot = new THREE.Group(); savage.vestSlot.position.set(0, 1.0, 0); savage.add(savage.vestSlot);
+            savage.pantsSlot = new THREE.Group(); savage.pantsSlot.position.set(0, 0.55, 0); savage.add(savage.pantsSlot);
+            savage.shoesSlot = new THREE.Group(); savage.shoesSlot.position.set(0, 0.0, 0); savage.add(savage.shoesSlot);
+            savage.accessoriesSlot = new THREE.Group(); savage.accessoriesSlot.position.set(0, 1.9, 0.36); savage.add(savage.accessoriesSlot);
+
+            return savage;
+        }
+
+        // ================= FOREST HUNT GAME SCENE =================
+        function build3DForestGameScene() {
+            huntForestGroup = new THREE.Group();
+            scene.add(huntForestGroup);
+            huntForestGroup.visible = false;
+
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshStandardMaterial({ color: 0x1c381e, roughness: 0.95 }));
+            ground.rotation.x = -Math.PI / 2;
+            huntForestGroup.add(ground);
+
+            for (let i = 0; i < 20; i++) {
+                const forestTree = createCartoonTree();
+                const tx = (Math.random() - 0.5) * 45;
+                const tz = (Math.random() - 0.5) * 30;
+                if (Math.abs(tx) > 6 || Math.abs(tz) > 6) {
+                    forestTree.position.set(tx, 0, tz);
+                    huntForestGroup.add(forestTree);
+                }
+            }
+        }
+
+        // ================= HOUSE BUILDING GAME SCENE =================
+        function build3DBuildingGameScene() {
+            buildHouseGroup = new THREE.Group();
+            scene.add(buildHouseGroup);
+            buildHouseGroup.visible = false;
+
+            const floor = new THREE.Mesh(new THREE.BoxGeometry(16, 0.5, 12), new THREE.MeshStandardMaterial({ color: 0x503629, roughness: 0.85 }));
+            floor.position.y = -2;
+            buildHouseGroup.add(floor);
+
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(16, 10, 0.5), new THREE.MeshStandardMaterial({ color: 0x6e4e39 }));
+            wall.position.set(0, 3, -6);
+            buildHouseGroup.add(wall);
+
+            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 10, 12), new THREE.MeshStandardMaterial({ color: 0x6e4e39 }));
+            leftWall.position.set(-8, 3, 0);
+            buildHouseGroup.add(leftWall);
+
+            const wireframeMat = new THREE.MeshBasicMaterial({ color: 0x1e90ff, wireframe: true, transparent: true, opacity: 0.4 });
+            const blueprintBed = new THREE.Mesh(new THREE.BoxGeometry(5, 2, 6), wireframeMat);
+            blueprintBed.position.set(-4, -1, -2);
+            buildHouseGroup.add(blueprintBed);
+
+            const blueprintWindow = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 0.3), wireframeMat);
+            blueprintWindow.position.set(0, 4, -5.8);
+            buildHouseGroup.add(blueprintWindow);
+        }
+
+        // ================= SAVAGE DRESS UP SCENE =================
+        function build3DSavageDressUpScene() {
+            dressCloseUpGroup = new THREE.Group();
+            scene.add(dressCloseUpGroup);
+            dressCloseUpGroup.visible = false;
+
+            const stand = new THREE.Mesh(new THREE.CylinderGeometry(4, 4.2, 0.8, 16), new THREE.MeshStandardMaterial({ color: 0x3d0f3e, roughness: 0.6 }));
+            stand.position.y = -2;
+            dressCloseUpGroup.add(stand);
+
+            const spot = new THREE.SpotLight(0xffea88, 3.0, 30, Math.PI/3.5, 0.5, 1);
+            spot.position.set(0, 12, 6);
+            dressCloseUpGroup.add(spot);
+        }
+
+        // ================= SCENE CONTROL =================
+        function changeGameMode(mode) {
+            playSfx('click');
+            state.gameMode = mode;
+            state.isDisplayShowcaseActive = false; // 退出走秀狀態
+
+            document.getElementById('ui-start').classList.add('hidden');
+            document.getElementById('ui-hud').classList.add('hidden');
+            document.getElementById('ui-game-hunt').classList.add('hidden');
+            document.getElementById('ui-game-build').classList.add('hidden');
+            document.getElementById('ui-game-dress').classList.add('hidden');
+
+            islandGroup.visible = false;
+            huntForestGroup.visible = false;
+            buildHouseGroup.visible = false;
+            dressCloseUpGroup.visible = false;
+
+            clearHuntTargets();
+            clearSpears();
+
+            if (mode === "island") {
+                islandGroup.visible = true;
+                camera.position.set(0, 15, 24);
+                camera.lookAt(0, 0, 0);
+                document.getElementById('ui-hud').classList.remove('hidden');
+                
+                islandGroup.add(savageCharacter);
+                savageCharacter.scale.set(1.8, 1.8, 1.8); 
+                savageCharacter.position.set(-1.8, 1.1, 1.2);
+                savageCharacter.rotation.set(0, 0, 0);
+
+                // 刷新野人服裝裝備
+                for (let i = 0; i < 5; i++) {
+                    applySavageMeshGear(savageCharacter, i, state.wardrobe[i]);
+                }
+
+                if (state.completed.hunt) islandHuntMeats.visible = true;
+                if (state.completed.build) {
+                    islandCabin.visible = true;
+                    tent.visible = false;
+                }
+
+                updateHUDProgress();
+            } 
+            else if (mode === "hunt") {
+                huntForestGroup.visible = true;
+                camera.position.set(0, 14, 25);
+                camera.lookAt(0, 0, 0);
+                showRulesBeforeStart('hunt');
+            } 
+            else if (mode === "build") {
+                buildHouseGroup.visible = true;
+                camera.position.set(0, 2, 16);
+                camera.lookAt(0, 2, 0);
+                
+                buildHouseGroup.add(savageCharacter);
+                savageCharacter.scale.set(1.4, 1.4, 1.4); 
+                savageCharacter.position.set(3.5, -1.75, -2);
+                savageCharacter.rotation.set(0, -Math.PI/4, 0);
+                
+                showRulesBeforeStart('build');
+            } 
+            else if (mode === "dress") {
+                dressCloseUpGroup.visible = true;
+                camera.position.set(0, 0.5, 7.5);
+                camera.lookAt(0, 0.5, 0);
+
+                dressCloseUpGroup.add(savageCharacter);
+                savageCharacter.scale.set(1.8, 1.8, 1.8); 
+                savageCharacter.position.set(0, -1.6, 0);
+                savageCharacter.rotation.set(0, 0, 0);
+
+                for (let i = 0; i < 5; i++) {
+                    applySavageMeshGear(savageCharacter, i, state.wardrobe[i]);
+                }
+                
+                showRulesBeforeStart('dress');
+            }
+        }
+
+        // 遊戲開始前彈出大字版規則，經確認後才開始
+        // 【重要修改】：大幅優化遊戲規則敘述，詳盡列出「生命值」、「急救復活題」與「唯一重玩機會」的機制！
+        function showRulesBeforeStart(mode) {
+            const modal = document.getElementById('rules-modal');
+            const titleEl = document.getElementById('rules-title');
+            const textEl = document.getElementById('rules-text');
+            const startBtn = document.getElementById('btn-start-mini-game');
+            
+            let title = "";
+            let text = "";
+            
+            if (mode === 'hunt') {
+                title = "🏹 森林打獵 (運動主題) 🏹";
+                text = `<div class="space-y-2 text-stone-300">
+                    <p><strong class="text-amber-300">【核心操作】</strong>點擊螢幕上奔跑的動物，將會射出 <strong class="text-white">3D 飛鏢</strong>！</p>
+                    <p><strong class="text-amber-300">【生命挑戰】</strong>答對隨機運動題目累積進度，答錯題目會<strong class="text-red-400">扣除 1 條生命</strong>（共 3 條命）。</p>
+                    <p><strong class="text-amber-400">【急救復活】</strong>若 3 條命不幸扣光，將觸發一次<strong class="text-orange-400">「野外急救復活挑戰題」</strong>。答對直接原地復活並補滿 1 生命，且保留您當前的打獵進度！</p>
+                    <p><strong class="text-red-400">【唯一重玩】</strong>若急救復活挑戰題依然答錯，將扣除本關<strong class="text-white">「唯一一次的重玩機會」</strong>。若連重玩機會都用盡，將宣布求生失敗並進入錯題複習本！</p>
+                    <p class="text-emerald-400 font-black mt-2">✨ 成功累計答對 5 題，即可將「漫畫烤肉物資」帶回 3D 島嶼！</p>
+                </div>`;
+            } else if (mode === 'build') {
+                title = "🔨 睡房搭建 (睡眠主題) 🔨";
+                text = `<div class="space-y-2 text-stone-300">
+                    <p><strong class="text-amber-300">【核心操作】</strong>點擊右側按鈕抽取睡眠常識問題！</p>
+                    <p><strong class="text-amber-300">【生命挑戰】</strong>答對時精美 3D 傢俱會高空落地彈跳，答錯則會<strong class="text-red-400">扣除 1 條生命</strong>（共 3 條命）。</p>
+                    <p><strong class="text-amber-400">【急救復活】</strong>若生命值歸零，將會面臨緊急的<strong class="text-orange-400">「野外急救復活挑戰」</strong>。答對即可原地滿血 1 生命復活，保留目前解鎖進度！</p>
+                    <p><strong class="text-red-400">【唯一重玩】</strong>若復活考驗失敗，將消耗此關卡<strong class="text-white">「僅有一次的重來機會」</strong>。一旦重來機會也用盡，則判定求生失敗！</p>
+                    <p class="text-emerald-400 font-black mt-2">✨ 成功累計答對 5 題，即可在 3D 主島上蓋好夢想小木屋！</p>
+                </div>`;
+            } else if (mode === 'dress') {
+                title = "🎀 心理著裝 (心理主題) 🎀";
+                text = `<div class="space-y-2 text-stone-300">
+                    <p><strong class="text-amber-300">【核心操作】</strong>答對心理健康問題，挑選帥氣防禦性求生探險服裝！</p>
+                    <p><strong class="text-amber-300">【生命挑戰】</strong>您擁有 3 條命，答錯將更換新題目並<strong class="text-red-400">扣除 1 條生命</strong>。</p>
+                    <p><strong class="text-amber-400">【急救復活】</strong>生命耗盡時會給予一次<strong class="text-orange-400">「野外急救復活題」</strong>，答對原地滿血 1 生命復活！</p>
+                    <p><strong class="text-red-400">【唯一重玩】</strong>急救題若再次答錯，會扣除本關卡<strong class="text-white">「唯一一次的重玩機會」</strong>。若再次失敗則宣布荒野求生失敗，回顧錯題本！</p>
+                    <p class="text-emerald-400 font-black mt-2">✨ 答對 5 題不僅能在 3D 島上同步換裝，還能解鎖大鏡頭「3D時裝秀」特寫！</p>
+                </div>`;
+            }
+
+            titleEl.innerText = title;
+            textEl.innerHTML = text;
+            modal.classList.remove('hidden');
+
+            startBtn.onclick = () => {
+                playSfx('click');
+                modal.classList.add('hidden');
+                
+                if (mode === 'hunt') {
+                    document.getElementById('ui-game-hunt').classList.remove('hidden');
+                    state.lives.hunt = 3;
+                    state.scores.hunt = 0;
+                    document.getElementById('hunt-score').innerText = '0';
+                    renderHearts('hunt');
+                    spawn3DHuntAnimal();
+                } else if (mode === 'build') {
+                    document.getElementById('ui-game-build').classList.remove('hidden');
+                    state.lives.build = 3;
+                    state.scores.build = 0;
+                    document.getElementById('build-score').innerText = '0';
+                    renderHearts('build');
+                    renderFurnitureInHouse();
+                } else if (mode === 'dress') {
+                    document.getElementById('ui-game-dress').classList.remove('hidden');
+                    state.lives.dress = 3;
+                    state.scores.dress = 0;
+                    document.getElementById('dress-score').innerText = '0';
+                    renderHearts('dress');
+                    for (let i = 0; i < 5; i++) {
+                        applySavageMeshGear(savageCharacter, i, "");
+                    }
+                }
+            };
+        }
+
+        function quitToIsland() {
+            changeGameMode('island');
+        }
+
+        // ================= 3D MINI GAME: TARGET HUNTING LOGIC =================
+        function spawn3DHuntAnimal() {
+            if (state.gameMode !== 'hunt' || state.scores.hunt >= 5) return;
+
+            const isRabbit = Math.random() > 0.5;
+            const targetGroup = new THREE.Group();
+
+            if (isRabbit) {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 1.1), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                targetGroup.add(body);
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                head.position.set(0, 0.5, 0.5);
+                targetGroup.add(head);
+                const ears = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.12), new THREE.MeshStandardMaterial({ color: 0xffc0cb }));
+                ears.position.set(0, 1.0, 0.4);
+                targetGroup.add(ears);
+                targetGroup.animalType = "rabbit";
+            } else {
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 1.4, 8), new THREE.MeshStandardMaterial({ color: 0x5a4b3d }));
+                body.rotation.x = Math.PI / 2;
+                targetGroup.add(body);
+                const nose = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+                nose.position.set(0, 0.1, 0.9);
+                targetGroup.add(nose);
+                targetGroup.animalType = "boar";
+            }
+
+            const fromLeft = Math.random() > 0.5;
+            targetGroup.position.set(fromLeft ? -25 : 25, 0.5, (Math.random() - 0.5) * 12);
+            targetGroup.speed = (2.8 + Math.random() * 1.4) * (fromLeft ? 1 : -1); 
+            
+            if (fromLeft) targetGroup.rotation.y = Math.PI / 2;
+            else targetGroup.rotation.y = -Math.PI / 2;
+
+            huntForestGroup.add(targetGroup);
+            state.huntTargets.push(targetGroup);
+        }
+
+        function clearHuntTargets() {
+            state.huntTargets.forEach(t => huntForestGroup.remove(t));
+            state.huntTargets = [];
+        }
+
+        function clearSpears() {
+            state.spears.forEach(s => huntForestGroup.remove(s));
+            state.spears = [];
+        }
+
+        // Real 3D physical arrow shooting on click
+        window.addEventListener('mousedown', (event) => {
+            const isQuizActive = !document.getElementById('quiz-modal').classList.contains('hidden');
+            const isRulesActive = !document.getElementById('rules-modal').classList.contains('hidden');
+            if (state.gameMode !== 'hunt' || isQuizActive || isRulesActive) return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+
+            const planeZ = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.5);
+            const targetPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(planeZ, targetPoint);
+
+            if (targetPoint) {
+                playSfx('click');
+
+                const arrowGroup = new THREE.Group();
+                
+                const shaftGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.2, 6);
+                const shaftMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8 });
+                const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+                shaft.rotation.x = Math.PI / 2;
+                arrowGroup.add(shaft);
+
+                const tipGeo = new THREE.ConeGeometry(0.12, 0.45, 4);
+                const tipMat = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.9, roughness: 0.2 });
+                const tip = new THREE.Mesh(tipGeo, tipMat);
+                tip.rotation.x = Math.PI / 2;
+                tip.position.z = 1.2;
+                arrowGroup.add(tip);
+
+                const featherMatRed = new THREE.MeshStandardMaterial({ color: 0xff3333 });
+                const featherMatWhite = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                const f1 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.25, 0.5), featherMatRed);
+                f1.position.set(0, 0.12, -0.9);
+                arrowGroup.add(f1);
+
+                const f2 = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.25, 0.5), featherMatWhite);
+                f2.position.set(0, -0.12, -0.9);
+                arrowGroup.add(f2);
+
+                arrowGroup.position.set(0, 1.5, 12);
+                
+                const direction = new THREE.Vector3().subVectors(targetPoint, arrowGroup.position).normalize();
+                arrowGroup.velocity = direction.multiplyScalar(0.48); 
+
+                arrowGroup.lookAt(targetPoint);
+
+                huntForestGroup.add(arrowGroup);
+                state.spears.push(arrowGroup);
+            }
+        });
+
+        // ================= 3D MINI GAME: FURNITURE HOUSE UPDATE =================
+        function renderFurnitureInHouse() {
+            for (let k in unlocked3DFurniture) {
+                if (unlocked3DFurniture[k]) {
+                    buildHouseGroup.remove(unlocked3DFurniture[k]);
+                    unlocked3DFurniture[k] = null;
+                }
+            }
+
+            const score = state.scores.build;
+
+            if (score >= 1) {
+                const bed = new THREE.Group();
+                bed.targetPos = new THREE.Vector3(-4, -1, -2);
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(4.8, 1.2, 5.8), new THREE.MeshStandardMaterial({ color: 0x8b5a2b }));
+                frame.castShadow = true;
+                bed.add(frame);
+                const matress = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.8, 5.4), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                matress.position.y = 0.5;
+                bed.add(matress);
+                const blanket = new THREE.Mesh(new THREE.BoxGeometry(4.45, 0.82, 3.5), new THREE.MeshStandardMaterial({ color: 0xd25d5d }));
+                blanket.position.set(0, 0.1, -1);
+                bed.add(blanket);
+                bed.name = "furniture_bed";
+                unlocked3DFurniture.bed = bed;
+                setupFurnitureAnimation("bed", bed);
+            }
+
+            if (score >= 2) {
+                const lamp = new THREE.Group();
+                lamp.targetPos = new THREE.Vector3(-6, 0.5, -4.5);
+                const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2, 8), new THREE.MeshStandardMaterial({ color: 0x999999 }));
+                lamp.add(stand);
+                const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+                const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), bulbMat);
+                bulb.position.y = 1.1;
+                lamp.add(bulb);
+                const bulbLight = new THREE.PointLight(0xffea00, 2.5, 12);
+                bulbLight.position.set(0, 1, 0);
+                bulbLight.name = "lightNode";
+                lamp.add(bulbLight);
+                lamp.name = "furniture_lamp";
+                unlocked3DFurniture.lamp = lamp;
+                setupFurnitureAnimation("lamp", lamp);
+            }
+
+            if (score >= 3) {
+                const win = new THREE.Group();
+                win.targetPos = new THREE.Vector3(0, 4, -5.8);
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.2, 0.2), new THREE.MeshStandardMaterial({ color: 0x4a2e12 }));
+                win.add(frame);
+                const glass = new THREE.Mesh(new THREE.BoxGeometry(3.8, 2.8, 0.1), new THREE.MeshBasicMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.7 }));
+                win.add(glass);
+                win.name = "furniture_window";
+                unlocked3DFurniture.window = win;
+                setupFurnitureAnimation("window", win);
+            }
+
+            if (score >= 4) {
+                const table = new THREE.Group();
+                table.targetPos = new THREE.Vector3(4, -1, 2);
+                const board = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.2, 2.2), new THREE.MeshStandardMaterial({ color: 0xcd853f }));
+                board.castShadow = true;
+                table.add(board);
+                for (let x of [-1.3, 1.3]) {
+                    for (let z of [-0.9, 0.9]) {
+                        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.5, 6), new THREE.MeshStandardMaterial({ color: 0x3d2314 }));
+                        leg.position.set(x, -0.8, z);
+                        table.add(leg);
+                    }
+                }
+                table.name = "furniture_table";
+                unlocked3DFurniture.table = table;
+                setupFurnitureAnimation("table", table);
+            }
+
+            if (score >= 5) {
+                const plant = new THREE.Group();
+                plant.targetPos = new THREE.Vector3(6, -0.5, -4.5);
+                const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.4, 1.2, 8), new THREE.MeshStandardMaterial({ color: 0x8b4513 }));
+                plant.add(pot);
+                const foliage = new THREE.Mesh(new THREE.SphereGeometry(1.0, 8, 8), new THREE.MeshStandardMaterial({ color: 0x228b22 }));
+                foliage.position.y = 1.1;
+                plant.add(foliage);
+                plant.name = "furniture_plant";
+                unlocked3DFurniture.plant = plant;
+                setupFurnitureAnimation("plant", plant);
+            }
+        }
+
+        function setupFurnitureAnimation(key, mesh) {
+            mesh.position.copy(mesh.targetPos);
+            const scoreIndex = { bed:1, lamp:2, window:3, table:4, plant:5 }[key];
+            if (scoreIndex === state.scores.build) {
+                mesh.position.y = 12; 
+                state.furnitureAnimationStates[key] = {
+                    mesh: mesh,
+                    currentY: 12,
+                    targetY: mesh.targetPos.y,
+                    velocity: 0,
+                    bounceCount: 0,
+                    scaleBounce: 0
+                };
+            }
+            buildHouseGroup.add(mesh);
+        }
+
+        // ================= 3D MINI GAME: CUSTOMIZING THE SAVAGE =================
+        function updateSavage3DGear(slotIndex, typeKey) {
+            state.wardrobe[slotIndex] = typeKey;
+            applySavageMeshGear(savageCharacter, slotIndex, typeKey);
+        }
+
+        function applySavageMeshGear(targetSavage, slotIndex, typeKey) {
+            if (!targetSavage) return;
+
+            let slot;
+            if (slotIndex === 0) slot = targetSavage.hatSlot;
+            else if (slotIndex === 1) slot = targetSavage.vestSlot;
+            else if (slotIndex === 2) slot = targetSavage.pantsSlot;
+            else if (slotIndex === 3) slot = targetSavage.shoesSlot;
+            else if (slotIndex === 4) slot = targetSavage.accessoriesSlot;
+
+            if (!slot) return;
+
+            // 防止褲子閃爍與穿模
+            if (slotIndex === 2) {
+                if (typeKey) {
+                    targetSavage.defaultSkirt.visible = false;
+                } else {
+                    targetSavage.defaultSkirt.visible = true;
+                }
+            }
+
+            while (slot.children.length > 0) {
+                slot.remove(slot.children[0]);
+            }
+
+            if (!typeKey) return; 
+
+            // 從大型隨機裝備池中尋找匹配的衣服屬性
+            let matchedOpt = null;
+            const cat = FULL_DRESS_ITEMS[slotIndex];
+            if (cat) {
+                matchedOpt = cat.options.find(o => o.shape === typeKey);
+            }
+            if (!matchedOpt) return;
+
+            const rColor = matchedOpt.color;
+
+            // 求生防護系列 3D 建模
+            if (slotIndex === 0) { // Hat
+                if (typeKey === "cone") { // 探險遮陽帽 🤠
+                    const base = new THREE.Group();
+                    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.05, 16), new THREE.MeshStandardMaterial({ color: rColor }));
+                    brim.position.y = 0.05;
+                    base.add(brim);
+                    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.5, 12), new THREE.MeshStandardMaterial({ color: rColor }));
+                    crown.position.y = 0.28;
+                    base.add(crown);
+                    slot.add(base);
+                } else if (typeKey === "crown") { // 經典防風帽 🧢
+                    const base = new THREE.Group();
+                    const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.4, 12), new THREE.MeshStandardMaterial({ color: rColor }));
+                    base.add(dome);
+                    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.35), new THREE.MeshStandardMaterial({ color: rColor }));
+                    visor.position.set(0, -0.1, 0.3);
+                    base.add(visor);
+                    slot.add(base);
+                }
+            } 
+            else if (slotIndex === 1) { // Vest
+                if (typeKey === "cape") { // 野外生存防風衣/防風披肩 🧥
+                    const vest = new THREE.Mesh(new THREE.BoxGeometry(0.96, 1.15, 0.56), new THREE.MeshStandardMaterial({ color: rColor, roughness: 0.9 }));
+                    slot.add(vest);
+                } else { // 舒適純棉衫 👕
+                    const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.15, 0.55), new THREE.MeshStandardMaterial({ color: rColor, roughness: 0.8 }));
+                    slot.add(shirt);
+                }
+            } 
+            else if (slotIndex === 2) { // Pants / Skirt
+                if (typeKey === "grass") { // 多口袋戰術工裝褲 👖
+                    const boxers = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.48, 0.56), new THREE.MeshStandardMaterial({ color: rColor, roughness: 0.9 }));
+                    slot.add(boxers);
+                } else { // 機能牛仔褲 👖
+                    const shorts = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.45, 0.56), new THREE.MeshStandardMaterial({ color: rColor, roughness: 0.85 }));
+                    slot.add(shorts);
+                }
+            } 
+            else if (slotIndex === 3) { // Shoes
+                if (typeKey === "leather") { // 專業登山防滑靴 🥾
+                    const leftBoot = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.32, 0.62), new THREE.MeshStandardMaterial({ color: rColor, roughness: 0.8 }));
+                    leftBoot.position.set(-0.25, 0.12, 0.1);
+                    slot.add(leftBoot);
+
+                    const rightBoot = leftBoot.clone();
+                    rightBoot.position.x = 0.25;
+                    slot.add(rightBoot);
+                } else { // 全地形運動鞋 👟
+                    const leftSli = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.6), new THREE.MeshStandardMaterial({ color: rColor }));
+                    leftSli.position.set(-0.25, 0.1, 0.1);
+                    slot.add(leftSli);
+
+                    const rightSli = leftSli.clone();
+                    rightSli.position.x = 0.25;
+                    slot.add(rightSli);
+                }
+            } 
+            else if (slotIndex === 4) { // Accessories
+                if (typeKey === "glasses") { // 微光戰術目鏡 🥽
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.18, 0.15), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+                    const lensL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.28, 0.05), new THREE.MeshBasicMaterial({ color: rColor }));
+                    lensL.position.set(-0.22, 0, 0.08);
+                    frame.add(lensL);
+                    const lensR = lensL.clone();
+                    lensR.position.x = 0.22;
+                    frame.add(lensR);
+                    slot.add(frame);
+                } else { // 復古定位羅盤 🧭
+                    const amulet = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.06, 8, 24), new THREE.MeshStandardMaterial({ color: rColor, metalness: 0.9, roughness: 0.1 }));
+                    amulet.rotation.x = Math.PI/2.2;
+                    amulet.position.set(0, -0.2, 0.1);
+                    slot.add(amulet);
+                }
+            }
+        }
+
+        // ================= GLOBAL KNOWLEDGE QUIZ MODAL LOGIC =================
+        function triggerQuiz(type) {
+            state.activeQuizType = type;
+            state.isReviveChallengeActive = (type === 'revive');
+            const topicBadge = document.getElementById('quiz-topic-badge');
+
+            if (type === 'hunt') {
+                topicBadge.innerText = '體能運動與心肺健康';
+                topicBadge.className = 'self-center bg-red-800 text-red-100 text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full mb-3 border border-red-600';
+            } else if (type === 'build') {
+                topicBadge.innerText = '睡眠修復與免疫調節';
+                topicBadge.className = 'self-center bg-amber-800 text-amber-100 text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full mb-3 border border-amber-600';
+            } else if (type === 'dress') {
+                topicBadge.innerText = '心理調適與自尊自信';
+                topicBadge.className = 'self-center bg-fuchsia-800 text-fuchsia-100 text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full mb-3 border border-fuchsia-600';
+            } else if (type === 'revive') {
+                topicBadge.innerText = '🚨 野外急救復活挑戰 🚨';
+                topicBadge.className = 'self-center bg-orange-600 text-stone-950 text-xs font-black uppercase tracking-wider px-4 py-2 rounded-full mb-3 border border-orange-400 animate-pulse';
+            }
+
+            let pool = QUESTIONS[type];
+            let item;
+
+            if (type === 'revive') {
+                state.currentQIdx = Math.floor(Math.random() * QUESTIONS.revive.length);
+                item = QUESTIONS.revive[state.currentQIdx];
+                document.getElementById('quiz-progress-lbl').innerText = `急救站復活檢測`;
+            } else {
+                // 防重複出題核心機制
+                if (state.usedIndices[type].length >= pool.length) {
+                    state.usedIndices[type] = [];
+                }
+
+                const availableIndices = [];
+                for (let i = 0; i < pool.length; i++) {
+                    if (!state.usedIndices[type].includes(i)) {
+                        availableIndices.push(i);
+                    }
+                }
+
+                const randIndexInAvail = Math.floor(Math.random() * availableIndices.length);
+                state.currentQIdx = availableIndices[randIndexInAvail];
+                state.usedIndices[type].push(state.currentQIdx);
+
+                item = pool[state.currentQIdx];
+                document.getElementById('quiz-progress-lbl').innerText = `本關進度: ${state.scores[type] + 1} / 5`;
+            }
+
+            document.getElementById('quiz-question-text').innerText = item.q;
+
+            // 洗牌打亂選項
+            const indexedOptions = item.a.map((text, idx) => ({ text, originalIdx: idx }));
+            for (let i = indexedOptions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const temp = indexedOptions[i];
+                indexedOptions[i] = indexedOptions[j];
+                indexedOptions[j] = temp;
+            }
+
+            state.shuffledChoices = indexedOptions;
+            state.currentCorrectChoiceIdx = indexedOptions.findIndex(o => o.originalIdx === item.c);
+
+            const container = document.getElementById('quiz-options-container');
+            container.innerHTML = '';
+
+            const feedback = document.getElementById('quiz-result-feedback');
+            feedback.classList.add('hidden');
+
+            indexedOptions.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left bg-stone-800 hover:bg-stone-700/80 active:scale-98 text-base md:text-lg text-stone-100 border border-stone-700 p-4.5 rounded-xl transition-all font-black flex items-center gap-3.5 pointer-events-auto shadow-sm';
+                btn.innerHTML = `<span class="w-8 h-8 rounded-full bg-stone-700 flex items-center justify-center text-base font-black text-amber-400 shrink-0 shadow-inner">${String.fromCharCode(65 + index)}</span> <span>${opt.text}</span>`;
+                btn.onclick = () => evaluateAnswer(index);
+                container.appendChild(btn);
+            });
+
+            document.getElementById('quiz-modal').classList.remove('hidden');
+        }
+
+        function evaluateAnswer(selectedIdx) {
+            const currentType = state.activeQuizType;
+            const item = (currentType === 'revive') ? QUESTIONS.revive[state.currentQIdx] : QUESTIONS[currentType][state.currentQIdx];
+            const isCorrect = (selectedIdx === state.currentCorrectChoiceIdx);
+
+            const container = document.getElementById('quiz-options-container');
+            const buttons = container.querySelectorAll('button');
+
+            buttons.forEach(b => b.disabled = true);
+
+            if (isCorrect) {
+                buttons[selectedIdx].classList.remove('bg-stone-800', 'border-stone-700');
+                buttons[selectedIdx].classList.add('bg-emerald-950', 'border-emerald-500', 'text-emerald-200');
+                buttons[selectedIdx].querySelector('span').classList.add('bg-emerald-600', 'text-white');
+
+                playSfx('correct');
+                const feedback = document.getElementById('quiz-result-feedback');
+                feedback.classList.remove('hidden', 'bg-red-950/80', 'text-red-400');
+                feedback.classList.add('bg-emerald-950/80', 'text-emerald-400');
+                
+                if (currentType === 'revive') {
+                    feedback.innerText = "✨ 急救止血處置得當！野人成功獲得重生！";
+                } else {
+                    feedback.innerText = "🎉 回答正確！大腦知識體力全面提升！";
+                }
+
+                if (currentType !== 'revive') {
+                    state.scores[currentType]++;
+                }
+
+                setTimeout(() => {
+                    document.getElementById('quiz-modal').classList.add('hidden');
+                    if (currentType === 'revive') {
+                        const originalType = state.reviveTriggeredBy;
+                        state.lives[originalType] = 1;
+                        renderHearts(originalType);
+                    } else {
+                        handleQuizSuccessTransition();
+                    }
+                }, 1600);
+            } else {
+                // 玩家答錯時更換題目的互動反饋機制
+                buttons[selectedIdx].classList.remove('bg-stone-800', 'border-stone-700');
+                buttons[selectedIdx].classList.add('bg-red-950', 'border-red-500', 'text-red-200');
+                buttons[selectedIdx].querySelector('span').classList.add('bg-red-600', 'text-white');
+
+                playSfx('wrong');
+                const feedback = document.getElementById('quiz-result-feedback');
+                feedback.classList.remove('hidden', 'bg-emerald-950/80', 'text-emerald-400');
+                feedback.classList.add('bg-red-950/80', 'text-red-400');
+                
+                // 記錄答錯題目的資訊（複習本）
+                recordWrongAnswer(item, selectedIdx);
+
+                if (currentType === 'revive') {
+                    feedback.innerText = "😭 急救處置錯誤！野人體力力竭倒下！";
+                    setTimeout(() => {
+                        document.getElementById('quiz-modal').classList.add('hidden');
+                        const originalType = state.reviveTriggeredBy;
+                        handleMiniGameFailTransition(originalType);
+                    }, 2500);
+                } else {
+                    // 普通關卡扣除生命
+                    state.lives[currentType]--;
+                    renderHearts(currentType);
+
+                    feedback.innerHTML = `
+                        <div class="text-left p-1">
+                            <p class="font-extrabold text-red-300 mb-1">❌ 回答錯誤！遺失了求生物資！</p>
+                            <p class="text-xs text-stone-200 font-bold bg-black/40 p-2 rounded border border-red-950/50 leading-relaxed">${item.hint || "再仔细想一想，換個思路試試看！"}</p>
+                            <p class="text-xs text-yellow-400 font-bold mt-1.5 animate-pulse"><i class="fa-solid fa-arrows-rotate"></i> 系統正在為您更換全新題目，請準備答題...</p>
+                        </div>
+                    `;
+
+                    setTimeout(() => {
+                        document.getElementById('quiz-modal').classList.add('hidden');
+                        
+                        if (state.lives[currentType] <= 0) {
+                            // 生命耗盡：進入復活大挑戰
+                            state.reviveTriggeredBy = currentType;
+                            triggerQuiz('revive');
+                        } else {
+                            // 剩餘生命時答錯直接換下一道隨機題，不卡死！
+                            triggerQuiz(currentType);
+                        }
+                    }, 3500);
+                }
+            }
+        }
+
+        function recordWrongAnswer(item, selectedIdx) {
+            const alreadyRecorded = state.wrongAnswers.some(w => w.q === item.q);
+            if (!alreadyRecorded) {
+                state.wrongAnswers.push({
+                    q: item.q,
+                    yourChoice: state.shuffledChoices[selectedIdx].text,
+                    correctChoice: state.shuffledChoices[state.currentCorrectChoiceIdx].text
+                });
+            }
+        }
+
+        function handleQuizSuccessTransition() {
+            const type = state.activeQuizType;
+            if (type === 'hunt') {
+                document.getElementById('hunt-score').innerText = state.scores.hunt;
+                if (state.scores.hunt >= 5) {
+                    state.completed.hunt = true;
+                    showConsolidatedOutcome(true, "hunt");
+                }
+            } else if (type === 'build') {
+                playSfx('build');
+                document.getElementById('build-score').innerText = state.scores.build;
+                renderFurnitureInHouse();
+                
+                if (state.scores.build >= 5) {
+                    state.completed.build = true;
+                    showConsolidatedOutcome(true, "build");
+                }
+            } else if (type === 'dress') {
+                document.getElementById('dress-score').innerText = state.scores.dress;
+                openDressSelectorWardrobe(state.scores.dress - 1);
+            }
+        }
+
+        function handleQuizFailTransition() {}
+
+        function handleMiniGameFailTransition(type) {
+            if (state.retriesUsed[type] < 1) {
+                showConsolidatedOutcome(false, type);
+            } else {
+                triggerOverallFailure();
+            }
+        }
+
+        function renderHearts(type) {
+            const el = document.getElementById(`${type}-lives`);
+            if(!el) return;
+            el.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const heart = document.createElement('i');
+                if (i < state.lives[type]) {
+                    heart.className = "fa-solid fa-heart text-red-500 text-lg mr-1";
+                } else {
+                    heart.className = "fa-regular fa-heart text-stone-600 text-lg mr-1";
+                }
+                el.appendChild(heart);
+            }
+        }
+
+        // RANDOMIZED WARDROBE SELECTION WINDOW
+        function openDressSelectorWardrobe(slotIdx) {
+            const modal = document.getElementById('dress-selector-modal');
+            const container = document.getElementById('dress-choices-container');
+            const data = FULL_DRESS_ITEMS[slotIdx]; 
+
+            document.getElementById('dress-category-hint').innerText = `已獲得裝飾部位：【${data.category}】`;
+            container.innerHTML = '';
+
+            const shuffledOpts = [...data.options].sort(() => Math.random() - 0.5);
+            const selectedOptions = shuffledOpts.slice(0, 2);
+
+            selectedOptions.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "bg-stone-800 border-2 border-fuchsia-800 hover:border-fuchsia-400 p-4 rounded-xl flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-all pointer-events-auto shadow-md";
+                
+                btn.innerHTML = `
+                    <span class="text-base font-black text-fuchsia-200">${opt.name}</span>
+                    <span class="text-xs text-stone-300 font-bold">裝配至 3D 野人</span>
+                `;
+                btn.onclick = () => {
+                    playSfx('click');
+                    updateSavage3DGear(slotIdx, opt.shape);
+                    modal.classList.add('hidden');
+
+                    if (state.scores.dress >= 5) {
+                        state.completed.dress = true;
+                        triggerDisplayShowcase();
+                    }
+                };
+                container.appendChild(btn);
+            });
+
+            modal.classList.remove('hidden');
+        }
+
+        // 換裝成功後的 3D 特寫走秀展示
+        function triggerDisplayShowcase() {
+            playSfx('correct');
+            state.isDisplayShowcaseActive = true;
+            state.showcaseTimer = Date.now();
+
+            document.getElementById('dress-ui-header').classList.add('hidden');
+            document.getElementById('dress-ui-footer').classList.add('hidden');
+
+            camera.position.set(0, 0.4, 8.5);
+            camera.lookAt(0, 0.4, 0);
+
+            setTimeout(() => {
+                state.isDisplayShowcaseActive = false;
+                
+                camera.position.set(0, 0.5, 7.5);
+                camera.lookAt(0, 0.5, 0);
+                
+                document.getElementById('dress-ui-header').classList.remove('hidden');
+                document.getElementById('dress-ui-footer').classList.remove('hidden');
+
+                showConsolidatedOutcome(true, "dress");
+            }, 3500);
+        }
+
+        // ================= SHOW CONSOLIDATED WIN/LOSS OVERLAYS =================
+        function showConsolidatedOutcome(isWin, type) {
+            const actionBtn = document.getElementById('btn-result-action');
+            const iconBg = document.getElementById('result-icon-bg');
+            const icon = document.getElementById('result-icon');
+            const title = document.getElementById('result-title');
+            const desc = document.getElementById('result-description');
+
+            if (isWin) {
+                iconBg.className = "w-20 h-20 rounded-full flex items-center justify-center mb-3 text-3xl shadow-lg bg-emerald-500 text-slate-950";
+                icon.className = "fa-solid fa-trophy";
+                title.innerText = "求生物資大成功！";
+                
+                if (type === 'hunt') {
+                    desc.innerText = "恭喜你！回答正確 5 題運動與體能常識！成功將極致美味的「3D漫畫巨肉」與木頭物資帶回島上！";
+                } else if (type === 'build') {
+                    desc.innerText = "睡眠小屋完美竣工！3D 舒適木屋已經建造完畢並帶回主島！島上簡陋帳篷升級為豪華度假木屋！";
+                } else if (type === 'dress') {
+                    desc.innerText = "野人外觀大升級！心理健康高昂的野人穿著你精心搭配的3D生存防護衣物，主島野人已同步換裝！";
+                }
+
+                actionBtn.innerText = "帶回島上並更新地圖！";
+                actionBtn.onclick = () => {
+                    playSfx('click');
+                    document.getElementById('result-overlay').classList.add('hidden');
+                    quitToIsland();
+                };
+            } else {
+                iconBg.className = "w-20 h-20 rounded-full flex items-center justify-center mb-3 text-3xl shadow-lg bg-orange-600 text-stone-950";
+                icon.className = "fa-solid fa-rotate-left";
+                title.innerText = "關卡挑戰失敗！";
+                desc.innerText = "你在本關耗盡了所有生命，且未能通過急救復活考驗。不過你還擁有僅此一次的重玩機會！是否重新挑戰？";
+
+                actionBtn.innerText = "使用唯一重玩機會";
+                actionBtn.onclick = () => {
+                    playSfx('click');
+                    document.getElementById('result-overlay').classList.add('hidden');
+                    
+                    state.retriesUsed[type]++; 
+                    state.scores[type] = 0;
+                    state.lives[type] = 3;
+                    state.usedIndices[type] = []; // 重置題目追蹤
+                    
+                    if (type === 'hunt') {
+                        clearHuntTargets();
+                        clearSpears();
+                    }
+
+                    changeGameMode(type);
+                };
+            }
+
+            document.getElementById('result-overlay').classList.remove('hidden');
+        }
+
+        // ================= SHOW OVERALL SURVIVAL FAILURE =================
+        function triggerOverallFailure() {
+            playSfx('wrong');
+            const failOverlay = document.getElementById('failure-ending-overlay');
+            const container = document.getElementById('wrong-answers-failure-container');
+
+            container.innerHTML = '';
+
+            if (state.wrongAnswers.length === 0) {
+                container.innerHTML = `
+                    <div class="p-3.5 text-center bg-stone-900 border border-red-800 rounded-xl text-base text-red-300 font-extrabold">
+                        無錯題紀錄，野人純粹因為意外或操作失誤未能成功。重新振作再試一次！
+                    </div>
+                `;
+            } else {
+                state.wrongAnswers.forEach((wa, idx) => {
+                    const row = document.createElement('div');
+                    row.className = "bg-stone-900 border border-red-900/40 p-3.5 rounded-xl text-sm md:text-base text-stone-300 leading-relaxed font-extrabold";
+                    row.innerHTML = `
+                        <p class="font-black text-amber-300 mb-1.5"><span class="text-stone-500">Q${idx+1}.</span> ${wa.q}</p>
+                        <p class="text-red-400 font-bold mb-0.5"><i class="fa-solid fa-xmark mr-1"></i>您當時的選擇: ${wa.yourChoice}</p>
+                        <p class="text-emerald-400 font-bold"><i class="fa-solid fa-check mr-1"></i>最正確的答案: ${wa.correctChoice}</p>
+                    `;
+                    container.appendChild(row);
+                });
+            }
+
+            failOverlay.classList.remove('hidden');
+        }
+
+        // ================= SHOW OVERALL SURVIVAL VICTORY ENDING =================
+        function triggerOverallVictory() {
+            playSfx('correct');
+            
+            const winOverlay = document.getElementById('victory-ending-overlay');
+            const listContainer = document.getElementById('wrong-answers-list-container');
+            
+            listContainer.innerHTML = '';
+            
+            if (state.wrongAnswers.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="p-3.5 text-center bg-emerald-950/60 border border-emerald-500 rounded-xl text-sm md:text-base text-emerald-300 font-extrabold">
+                        🏆 太驚人了！您在此次求生之旅中，所有健康難題與急救挑戰全部一次答對，榮獲「荒島大腦終極院士」金牌大獎！
+                    </div>
+                `;
+            } else {
+                state.wrongAnswers.forEach((wa, idx) => {
+                    const row = document.createElement('div');
+                    row.className = "bg-stone-900 border border-emerald-900/40 p-3.5 rounded-xl text-xs md:text-sm text-stone-300 leading-relaxed font-extrabold";
+                    row.innerHTML = `
+                        <p class="font-black text-amber-200 mb-1.5"><span class="text-stone-500">Q${idx+1}.</span> ${wa.q}</p>
+                        <p class="text-red-400 font-bold mb-0.5"><i class="fa-solid fa-xmark mr-1"></i>您當時的選擇: ${wa.yourChoice}</p>
+                        <p class="text-emerald-400 font-bold"><i class="fa-solid fa-check mr-1"></i>最正確的答案: ${wa.correctChoice}</p>
+                    `;
+                    listContainer.appendChild(row);
+                });
+            }
+
+            winOverlay.classList.remove('hidden');
+        }
+
+        function restartFullGame() {
+            playSfx('click');
+            
+            state.scores = { hunt: 0, build: 0, dress: 0 };
+            state.completed = { hunt: false, build: false, dress: false };
+            state.lives = { hunt: 3, build: 3, dress: 3 };
+            state.retriesUsed = { hunt: 0, build: 0, dress: 0 };
+            state.wrongAnswers = [];
+            state.wardrobe = { 0: null, 1: null, 2: null, 3: null, 4: null };
+            state.usedIndices = { hunt: [], build: [], dress: [] }; // 重置題目隨機池
+
+            for (let i = 0; i < 5; i++) {
+                applySavageMeshGear(savageCharacter, i, "");
+            }
+
+            islandHuntMeats.visible = false;
+            islandCabin.visible = false;
+            tent.visible = true;
+
+            document.getElementById('victory-ending-overlay').classList.add('hidden');
+            document.getElementById('failure-ending-overlay').classList.add('hidden');
+            
+            changeGameMode('island');
+        }
+
+        function updateHUDProgress() {
+            let completedCount = 0;
+            if (state.completed.hunt) completedCount++;
+            if (state.completed.build) completedCount++;
+            if (state.completed.dress) completedCount++;
+
+            const totalPct = Math.round((completedCount / 3) * 100);
+            document.getElementById('hud-total-progress').innerText = `${totalPct}%`;
+
+            toggleBadgeOpacity('badge-hunt', state.completed.hunt);
+            toggleBadgeOpacity('badge-build', state.completed.build);
+            toggleBadgeOpacity('badge-dress', state.completed.dress);
+
+            // 關卡完成時，在 HUD 維持顯示「已通關」
+            document.getElementById('hud-hunt-count').innerText = state.completed.hunt ? "已通關" : `${state.scores.hunt}/5`;
+            document.getElementById('hud-build-count').innerText = state.completed.build ? "已通關" : `${state.scores.build}/5`;
+            document.getElementById('hud-dress-count').innerText = state.completed.dress ? "已通關" : `${state.scores.dress}/5`;
+
+            if (state.completed.hunt && campfire) {
+                campfire.scale.set(1.5, 1.5, 1.5);
+            }
+
+            if (state.completed.hunt && state.completed.build && state.completed.dress) {
+                setTimeout(() => {
+                    triggerOverallVictory();
+                }, 1800);
+            }
+        }
+
+        function toggleBadgeOpacity(id, isDone) {
+            const badge = document.getElementById(id);
+            if (isDone) {
+                badge.classList.remove('opacity-40');
+                badge.classList.add('opacity-100', 'bg-emerald-900', 'border-emerald-500');
+            } else {
+                badge.classList.add('opacity-40');
+                badge.classList.remove('opacity-100', 'bg-emerald-900', 'border-emerald-500');
+            }
+        }
+
+        // ================= TOUCH & MOUSE INTERACTION ROTATION =================
+        function onMouseDown(e) {
+            if (state.isDisplayShowcaseActive) return; 
+            state.isDragging = true;
+            state.previousMouseX = e.clientX;
+            state.previousMouseY = e.clientY;
+        }
+
+        function onMouseMove(e) {
+            if (!state.isDragging || state.isDisplayShowcaseActive) return;
+            const deltaX = e.clientX - state.previousMouseX;
+
+            if (state.gameMode === 'island') {
+                islandGroup.rotation.y += deltaX * 0.007;
+            } else if (state.gameMode === 'dress') {
+                savageCharacter.rotation.y += deltaX * 0.012; 
+            }
+
+            state.previousMouseX = e.clientX;
+            state.previousMouseY = e.clientY;
+        }
+
+        function onTouchStart(e) {
+            if (state.isDisplayShowcaseActive) return;
+            if (e.touches.length === 1) {
+                state.isDragging = true;
+                state.previousMouseX = e.touches[0].clientX;
+                state.previousMouseY = e.touches[0].clientY;
+            }
+        }
+
+        function onTouchMove(e) {
+            if (!state.isDragging || e.touches.length !== 1 || state.isDisplayShowcaseActive) return;
+            const deltaX = e.touches[0].clientX - state.previousMouseX;
+            
+            if (state.gameMode === 'island') {
+                islandGroup.rotation.y += deltaX * 0.009;
+            } else if (state.gameMode === 'dress') {
+                savageCharacter.rotation.y += deltaX * 0.015;
+            }
+
+            state.previousMouseX = e.touches[0].clientX;
+        }
+
+        function onMouseUp() {
+            state.isDragging = false;
+        }
+
+        // ================= RENDER ANIMATION TICK =================
+        let lastTime = 0;
+        function animate3D(time) {
+            requestAnimationFrame(animate3D);
+
+            const dt = time - lastTime;
+            lastTime = time;
+
+            const isQuizActive = !document.getElementById('quiz-modal').classList.contains('hidden');
+
+            if (campfire) {
+                const scaleVal = 1 + Math.sin(time * 0.02) * 0.15;
+                campfire.scale.set(scaleVal, 1.2 + Math.cos(time * 0.015) * 0.1, scaleVal);
+            }
+
+            // 野人動畫
+            if (savageCharacter) {
+                if (state.isDisplayShowcaseActive) {
+                    savageCharacter.rotation.y += 0.05;
+                    savageCharacter.position.y = -1.6 + Math.sin(time * 0.01) * 0.1; 
+                } else {
+                    const breathingY = Math.sin(time * 0.0025) * 0.04;
+                    if (state.gameMode === 'dress') {
+                        savageCharacter.position.y = -1.6 + breathingY;
+                    } else if (state.gameMode === 'build') {
+                        savageCharacter.position.y = -1.75 + breathingY;
+                    } else {
+                        savageCharacter.position.y = 1.1 + breathingY;
+                    }
+                }
+            }
+
+            if (sharkFin && state.gameMode === 'island') {
+                const radius = 22;
+                const angle = time * 0.0006;
+                sharkFin.position.set(Math.cos(angle) * radius, -0.6, Math.sin(angle) * radius);
+                sharkFin.rotation.y = -angle + Math.PI / 2;
+            }
+
+            // FOREST HUNT GAMEPLAY: ANIMAL RUNNING & ARROW PHYSICS
+            if (state.gameMode === 'hunt') {
+                if (!isQuizActive) {
+                    if (Date.now() - state.lastHuntTargetSpawn > 1800) {
+                        spawn3DHuntAnimal();
+                        state.lastHuntTargetSpawn = Date.now();
+                    }
+
+                    state.huntTargets.forEach((t, tIndex) => {
+                        t.position.x += t.speed * 0.025;
+                        if (Math.abs(t.position.x) > 30) {
+                            huntForestGroup.remove(t);
+                            state.huntTargets.splice(tIndex, 1);
+                        }
+                    });
+
+                    state.spears.forEach((spear, sIndex) => {
+                        spear.position.add(spear.velocity);
+                        spear.lookAt(spear.position.clone().add(spear.velocity));
+
+                        if (spear.position.z < -20 || spear.position.z > 20 || Math.abs(spear.position.x) > 30) {
+                            huntForestGroup.remove(spear);
+                            state.spears.splice(sIndex, 1);
+                            return;
+                        }
+
+                        state.huntTargets.forEach((animal, aIndex) => {
+                            const dist = spear.position.distanceTo(animal.position);
+                            if (dist < 1.6) {
+                                playSfx('hit');
+                                huntForestGroup.remove(spear);
+                                state.spears.splice(sIndex, 1);
+
+                                const flash = new THREE.Mesh(
+                                    new THREE.SphereGeometry(1.5, 8, 8), 
+                                    new THREE.MeshBasicMaterial({ color: 0xffea00, transparent: true, opacity: 0.8 })
+                                );
+                                flash.position.copy(animal.position);
+                                huntForestGroup.add(flash);
+                                setTimeout(() => huntForestGroup.remove(flash), 150);
+
+                                huntForestGroup.remove(animal);
+                                state.huntTargets.splice(aIndex, 1);
+                                triggerQuiz('hunt');
+                            }
+                        });
+                    });
+                }
+            }
+
+            // HOUSE BUILDING: ELASTIC DROP AND BOUNCE
+            if (state.gameMode === 'build') {
+                for (let k in state.furnitureAnimationStates) {
+                    const anim = state.furnitureAnimationStates[k];
+                    if (anim) {
+                        anim.velocity -= 0.018; 
+                        anim.currentY += anim.velocity;
+
+                        if (anim.currentY <= anim.targetY) {
+                            anim.currentY = anim.targetY;
+                            if (anim.bounceCount < 3) {
+                                anim.velocity = -anim.velocity * 0.45; 
+                                anim.bounceCount++;
+                                playSfx('build');
+                            } else {
+                                anim.velocity = 0;
+                            }
+                        }
+
+                        anim.mesh.position.y = anim.currentY;
+
+                        if (anim.scaleBounce > 0.01) {
+                            anim.scaleBounce *= 0.88; 
+                            const squishVal = Math.sin(time * 0.03) * anim.scaleBounce;
+                            anim.mesh.scale.set(1 + squishVal, 1 - squishVal, 1 + squishVal);
+                        } else {
+                            anim.mesh.scale.set(1, 1, 1);
+                        }
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // ================= LAUNCH EVENT =================
+        document.getElementById('btn-enter-island').addEventListener('click', () => {
+            playSfx('click');
+            const pName = document.getElementById('player-name-input').value.trim();
+            if (pName) state.playerName = pName;
+            document.getElementById('hud-player-name').innerText = state.playerName;
+
+            document.getElementById('ui-start').classList.add('hidden');
+            document.getElementById('ui-hud').classList.remove('hidden');
+            
+            changeGameMode('island');
+        });
+
+        window.onload = () => {
+            init3D();
+        };
+    </script>
+</body>
+</html>
